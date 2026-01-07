@@ -1,0 +1,304 @@
+from pathlib import Path
+
+html = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Outlook Invitees Who Registered – Session Selection Summary</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --card:#121a2a;
+      --text:#e8eefc;
+      --muted:#a8b3cf;
+      --accent:#6aa9ff;
+      --border:rgba(255,255,255,0.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(106,169,255,0.20), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(123,217,168,0.16), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.35;
+    }
+    header{
+      padding:28px 18px 10px;
+      max-width:1100px;
+      margin:0 auto;
+    }
+    h1{
+      margin:0 0 6px;
+      font-size: clamp(20px, 3vw, 30px);
+      letter-spacing:0.2px;
+    }
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+    }
+    main{
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px 18px 32px;
+      display:grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap:16px;
+    }
+    @media (max-width: 900px){
+      main{grid-template-columns:1fr}
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .kpis{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    @media (max-width: 600px){
+      .kpis{grid-template-columns:1fr}
+    }
+    .kpi{
+      background: rgba(255,255,255,0.03);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px 12px 10px;
+    }
+    .kpi .label{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:6px;
+    }
+    .kpi .value{
+      font-size:24px;
+      font-weight:700;
+      letter-spacing:0.2px;
+    }
+    .kpi .note{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:6px;
+    }
+    h2{
+      margin:0 0 10px;
+      font-size:16px;
+      color:var(--text);
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 700px){
+      .grid2{grid-template-columns:1fr}
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(106,169,255,0.12);
+      border:1px solid rgba(106,169,255,0.25);
+      color:var(--text);
+      font-size:12px;
+      margin-bottom:10px;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:50%;
+      background:var(--accent);
+    }
+    ul{
+      margin:0;
+      padding-left:18px;
+      color:var(--text);
+    }
+    li{margin:6px 0}
+    .muted{color:var(--muted); font-size:12px}
+    table{
+      width:100%;
+      border-collapse:collapse;
+      overflow:hidden;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.02);
+    }
+    th, td{
+      text-align:left;
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      vertical-align:top;
+      font-size:13px;
+    }
+    th{color:var(--muted); font-weight:600}
+    tr:last-child td{border-bottom:none}
+    .tag{
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);
+      color:var(--text);
+      white-space:nowrap;
+    }
+    footer{
+      max-width:1100px;
+      margin:0 auto;
+      padding:0 18px 26px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    canvas{max-width:100%}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Outlook Invitees Who Registered</h1>
+    <p class="sub">Summary of what the 18 matched invitees registered for, grouped by keynote selection</p>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Invited and registered</div>
+        <div class="value">18</div>
+        <div class="note">Deduplicated by person</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Keynote only</div>
+        <div class="value">11</div>
+        <div class="note">61.1% of matched invitees</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Not keynote only</div>
+        <div class="value">7</div>
+        <div class="note">Includes keynote plus sessions and non keynotes</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Registration breakdown</h2>
+      <div class="grid2">
+        <div class="card" style="padding:14px;">
+          <div class="pill"><span class="dot"></span>Pie chart</div>
+          <canvas id="pie" height="220"></canvas>
+          <p class="muted">Categories reflect registration selections captured in the spreadsheet.</p>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="pill"><span class="dot"></span>Bar chart</div>
+          <canvas id="bar" height="220"></canvas>
+          <p class="muted">Useful for quick comparison of group sizes.</p>
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">People by category</h2>
+      <table aria-label="Invitees by category">
+        <thead>
+          <tr>
+            <th style="width:30%;">Category</th>
+            <th>Names</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag">Keynote only (11)</span></td>
+            <td>
+              Alba Argerich, Brian Houston, Jeannette Pierce, Jessica Hosey, Joan Hermsen, John Lannin, Joi Moore, Laurie Wallace, Raquel Arouca, Reginald Rogers Jr, Shruti Rana
+            </td>
+          </tr>
+          <tr>
+            <td><span class="tag">Keynote plus additional session(s) (1)</span></td>
+            <td>Mary Christie</td>
+          </tr>
+          <tr>
+            <td><span class="tag">Non keynote session(s) only (6)</span></td>
+            <td>
+              David Schulz, Jennifer Fellabaum Toston, Jennifer Wentz, Lael Keiser, Michael Volz, Soren Larsen
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="muted" style="margin-top:10px;">
+        Note: This page summarizes categories only. If you want session titles per person, add the specific session columns or export a session selection report, then the same layout can list titles under each name.
+      </p>
+    </section>
+
+    <aside class="card">
+      <h2>Quick interpretation</h2>
+      <ul>
+        <li><strong>Most matched invitees registered for keynote only</strong> (11 of 18).</li>
+        <li><strong>One person</strong> registered for keynote and at least one additional session.</li>
+        <li><strong>Six people</strong> registered for non keynote sessions only.</li>
+      </ul>
+      <p class="muted" style="margin-top:10px;">
+        Tip: If you need an email ready summary, you can copy the KPI values and the three category lines from the table.
+      </p>
+
+      <h2 style="margin-top:14px;">Counts</h2>
+      <table aria-label="Counts">
+        <tbody>
+          <tr><td>Keynote only</td><td><strong>11</strong></td></tr>
+          <tr><td>Keynote plus sessions</td><td><strong>1</strong></td></tr>
+          <tr><td>Non keynote sessions only</td><td><strong>6</strong></td></tr>
+          <tr><td>Total</td><td><strong>18</strong></td></tr>
+        </tbody>
+      </table>
+    </aside>
+  </main>
+
+  <footer>
+    Generated for Teaching Renewal Week 2026 registration cross check.
+  </footer>
+
+  <script>
+    const labels = ["Keynote only", "Keynote + additional session(s)", "Non keynote session(s) only"];
+    const values = [11, 1, 6];
+
+    new Chart(document.getElementById("pie"), {
+      type: "pie",
+      data: { labels, datasets: [{ data: values }] },
+      options: {
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = values.reduce((a,b)=>a+b,0);
+                const v = ctx.raw;
+                const pct = (v/total*100).toFixed(1);
+                return ` ${ctx.label}: ${v} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    new Chart(document.getElementById("bar"), {
+      type: "bar",
+      data: { labels, datasets: [{ label: "People", data: values }] },
+      options: {
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  </script>
+</body>
+</html>
+"""
+
+path = Path("/mnt/data/invitees_registration_summary.html")
+path.write_text(html, encoding="utf-8")
+path.as_posix()
