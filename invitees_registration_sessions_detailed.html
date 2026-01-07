@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invitees Who Registered – What They Registered For</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --text:#e8eefc;
+      --muted:#a8b3cf;
+      --border:rgba(255,255,255,0.10);
+      --chip:rgba(255,255,255,0.06);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(106,169,255,0.20), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(123,217,168,0.16), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      line-height:1.35;
+    }
+    header{max-width:1100px;margin:0 auto;padding:26px 18px 10px}
+    h1{margin:0 0 6px;font-size:clamp(20px,3vw,30px)}
+    .sub{margin:0;color:var(--muted);font-size:14px}
+    main{max-width:1100px;margin:0 auto;padding:16px 18px 30px;display:grid;gap:16px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.25)}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}
+    @media (max-width: 900px){.kpis{grid-template-columns:1fr 1fr}}
+    @media (max-width: 520px){.kpis{grid-template-columns:1fr}}
+    .kpi{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:14px;padding:12px}
+    .kpi .label{color:var(--muted);font-size:12px;margin-bottom:6px}
+    .kpi .value{font-size:24px;font-weight:800}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 900px){.grid2{grid-template-columns:1fr}}
+    h2{margin:0 0 10px;font-size:16px}
+    .muted{color:var(--muted);font-size:12px}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:rgba(255,255,255,0.02)}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}
+    th{color:var(--muted);font-weight:700}
+    tr:last-child td{border-bottom:none}
+    .chip{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border);font-size:12px}
+    details{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
+    details summary{cursor:pointer;color:var(--text);font-weight:700}
+    .sessions{margin:8px 0 0;padding-left:18px}
+    .sessions li{margin:6px 0}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input[type="search"], select{
+      background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;
+      padding:10px 12px;color:var(--text);outline:none
+    }
+    input[type="search"]{min-width:240px}
+    canvas{max-width:100%}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Invitees Who Registered</h1>
+  <p class="sub">Exact sessions selected by the 18 matched Outlook invitees (from the registration export)</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Matched invitees</div><div class="value">18</div></div>
+    <div class="kpi"><div class="label">Keynote selected</div><div class="value">13</div><div class="muted">72.2%</div></div>
+    <div class="kpi"><div class="label">No keynote selected</div><div class="value">5</div><div class="muted">27.8%</div></div>
+    <div class="kpi"><div class="label">Average sessions selected</div><div class="value">6.1</div></div>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Visual summary</h2>
+    <div class="grid2">
+      <div class="card" style="padding:14px;">
+        <div class="chip">Keynote selection</div>
+        <canvas id="pieKeynote" height="240"></canvas>
+        <p class="muted">Selected at least one session containing “Keynote”.</p>
+      </div>
+      <div class="card" style="padding:14px;">
+        <div class="chip">How many sessions selected</div>
+        <canvas id="pieLoad" height="240"></canvas>
+        <p class="muted">Buckets based on total sessions selected per person.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;">Details by person</h2>
+      <span class="muted">Search or filter</span>
+      <input id="q" type="search" placeholder="Search name or session text…" />
+      <select id="fKeynote">
+        <option value="all">All</option>
+        <option value="yes">Keynote selected</option>
+        <option value="no">No keynote</option>
+      </select>
+    </div>
+    <p class="muted" style="margin-top:8px;">Click “View sessions” to expand.</p>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th style="width:22%;">Name</th>
+          <th style="width:12%;">Keynote?</th>
+          <th style="width:14%;">Total sessions</th>
+          <th>Sessions selected</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Note</h2>
+    <p class="muted">
+      Session titles are taken directly from the form export. Some entries contain shortened text (…)
+      from the original form wording. If you want, I can also create a cleaned “Title only” list that keeps only the text after the “|”.
+    </p>
+  </section>
+</main>
+
+<script>
+  const DATA = [{"name": "Alba Argerich", "total": 4, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Tuesday 01/13, 11:00am - 11:50am | Showcasing Learning Through ePortfolios: Connecting Pedagogy and Technology - Joshua Merlenbach and Jennifer O'Connor", "Wednesday 01/14, 2:00pm - 2:50pm | Aligning Faculty-Mentoring Independent Research and Creative Scholarship Experiences With the RI Designation Across Disciplines - Linda Blockus, Sarah Humfeld, Pam Brown, and Nicole Campione-Barr"]}, {"name": "Brian Houston", "total": 8, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Thursday 01/15, 3:00pm - 3:50pm | From Nightmare to Effective Collaboration: Improving Teamwork in Public Health Education Using A Role-Based Framework - Sonita Simelus", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim", "Tuesday 01/13, 2:00pm-2:50pm | Research Intensive Course Faculty Panel - Linda Blockus, Timothy Langen, Jamie Mestres, Soren Larsen, Nicolette Leiby, Amy Petry, and Kristin Schwain", "Tuesday 01/13, 3:00pm - 3:50pm | Academic HIPs 101 - Graham McCaulley, Nicole Monnier, Erika Waller, Amy Lannin, and Linda Blockus", "Wednesday 01/14, 2:00pm - 2:50pm | Rethink and Redesign Assessments and Assignments That Have Been Undermined by AI - Justin Palozola and Kirk Durpee"]}, {"name": "Shruti Rana", "total": 3, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown"]}, {"name": "Raquel Arouca", "total": 6, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim"]}, {"name": "Mary Christie", "total": 23, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Monday 01/12, 2:00pm - 2:50pm | Success in Nursing: Coaching for Excellence - Christyl Barnes and Dr. Meredith Buchmeier", "Monday 01/12, 3:00pm - 3:50pm | In-Person session - at the Teaching for Learning Center - Does it Help or Hinder?: The Complexities of AI in Accessibility and Equity in Education - Caroline Waldbuesser, Kara Starnes, Evan Kirksey, and Kendal Lyssy", "Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Thursday 01/15, 1:00pm - 1:50pm | Teaching AI Application: Lessons Learned - Joel Poor", "Thursday 01/15, 2:00pm - 2:50pm | The Compassionate Classroom: Applying the Pedagogy of Kindness for Enhanced Student Engagement and Well-being - Rachel Bailey-Wood", "Thursday 01/15, 3:00pm - 3:50pm | From Nightmare to Effective Collaboration: Improving Teamwork in Public Health Education Using A Role-Based Framework - Sonita Simelus", "Thursday 01/15, 3:00pm - 3:50pm | Inventive Course Assignments and Activities: Ideas from Comm 4420W - Linda Blockus and Amy Lannin", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Tuesday 01/13, 11:00am - 11:50am | Showcasing Learning Through ePortfolios: Connecting Pedagogy and Technology - Joshua Merlenbach and Jennifer O'Connor", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim", "Tuesday 01/13, 2:00pm - 2:50pm | Helping Students Find Their Voice: Creative Strategies for Engaged Academic Writing - Lissa Behm-Morawitz, Amy Lannin, and Christy Goldsmith", "Tuesday 01/13, 2:00pm-2:50pm | Research Intensive Course Faculty Panel - Linda Blockus, Timothy Langen, Jamie Mestres, Soren Larsen, Nicolette Leiby, Amy Petry, and Kristin Schwain", "Tuesday 01/13, 3:00pm - 3:50pm | Academic HIPs 101 - Graham McCaulley, Nicole Monnier, Erika Waller, Amy Lannin, and Linda Blockus", "Tuesday 01/13, 3:00pm - 3:50pm | Story as Strategy: Using Narrative Design to Deepen Reflection, Retention, and Relevance in Learning - Joshua Shinn", "Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown", "Wednesday 01/14, 1:00pm - 1:50pm | The Horcruxes of the 21st Century: Understanding and Navigating AI Agents in Teaching and Learning - Guy Wilson, Thomas Roedel, and Kirk Dupree", "Wednesday 01/14, 2:00pm - 2:50pm | Aligning Faculty-Mentoring Independent Research and Creative Scholarship Experiences With the RI Designation Across Disciplines - Linda Blockus, Sarah Humfeld, Pam Brown, and Nicole Campione-Barr", "Wednesday 01/14, 2:00pm - 2:50pm | Rethink and Redesign Assessments and Assignments That Have Been Undermined by AI - Justin Palozola and Kirk Durpee", "Wednesday 01/14, 3:00pm - 3:50pm | AI Promptathon - Microsoft CoPilot Chat - Chuck Jones", "Wednesday 01/14, 3:00pm - 3:50pm | Better by Design: Elevating Engagement in Online Learning - Laura Foley, Persephone Lundolos, Jennifer O'Connor, Anandhi Upendran, and Danielle Oprean"]}, {"name": "John Lannin", "total": 8, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Thursday 01/15, 1:00pm - 1:50pm | Teaching AI Application: Lessons Learned - Joel Poor", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown", "Wednesday 01/14, 1:00pm - 1:50pm | The Horcruxes of the 21st Century: Understanding and Navigating AI Agents in Teaching and Learning - Guy Wilson, Thomas Roedel, and Kirk Dupree", "Wednesday 01/14, 2:00pm - 2:50pm | Rethink and Redesign Assessments and Assignments That Have Been Undermined by AI - Justin Palozola and Kirk Durpee"]}, {"name": "Joan Hermsen", "total": 4, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Wednesday 01/14, 2:00pm - 2:50pm | Aligning Faculty-Mentoring Independent Research and Creative Scholarship Experiences With the RI Designation Across Disciplines - Linda Blockus, Sarah Humfeld, Pam Brown, and Nicole Campione-Barr", "Wednesday 01/14, 3:00pm - 3:50pm | Better by Design: Elevating Engagement in Online Learning - Laura Foley, Persephone Lundolos, Jennifer O'Connor, Anandhi Upendran, and Danielle Oprean"]}, {"name": "David Schulz", "total": 3, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | Success in Nursing: Coaching for Excellence - Christyl Barnes and Dr. Meredith Buchmeier", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Wednesday 01/14, 2:00pm - 2:50pm | Aligning Faculty-Mentoring Independent Research and Creative Scholarship Experiences With the RI Designation Across Disciplines - Linda Blockus, Sarah Humfeld, Pam Brown, and Nicole Campione-Barr"]}, {"name": "Reginald Rogers Jr", "total": 9, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Monday 01/12, 3:00pm - 3:50pm | In-Person session - at the Teaching for Learning Center - Does it Help or Hinder?: The Complexities of AI in Accessibility and Equity in Education - Caroline Waldbuesser, Kara Starnes, Evan Kirksey, and Kendal Lyssy", "Thursday 01/15, 1:00pm - 1:50pm | Teaching the Whole Student: What We Can Learn From Student-Athletes - Julie Hagan and Michelle Kelly", "Thursday 01/15, 2:00pm - 2:50pm | The Compassionate Classroom: Applying the Pedagogy of Kindness for Enhanced Student Engagement and Well-being - Rachel Bailey-Wood", "Tuesday 01/13, 1:00pm - 1:50pm | Striving for Tomorrow: Supporting Autistic Young Adults - Jaclyn Benigno", "Tuesday 01/13, 2:00pm-2:50pm | Research Intensive Course Faculty Panel - Linda Blockus, Timothy Langen, Jamie Mestres, Soren Larsen, Nicolette Leiby, Amy Petry, and Kristin Schwain", "Tuesday 01/13, 3:00pm - 3:50pm | Academic HIPs 101 - Graham McCaulley, Nicole Monnier, Erika Waller, Amy Lannin, and Linda Blockus", "Wednesday 01/14, 2:00pm - 2:50pm | Aligning Faculty-Mentoring Independent Research and Creative Scholarship Experiences With the RI Designation Across Disciplines - Linda Blockus, Sarah Humfeld, Pam Brown, and Nicole Campione-Barr"]}, {"name": "Jeannette Pierce", "total": 6, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown", "Wednesday 01/14, 1:00pm - 1:50pm | The Horcruxes of the 21st Century: Understanding and Navigating AI Agents in Teaching and Learning - Guy Wilson, Thomas Roedel, and Kirk Dupree", "Wednesday 01/14, 2:00pm - 2:50pm | Rethink and Redesign Assessments and Assignments That Have Been Undermined by AI - Justin Palozola and Kirk Durpee", "Wednesday 01/14, 3:00pm - 3:50pm | AI Promptathon - Microsoft CoPilot Chat - Chuck Jones"]}, {"name": "Lael Keiser", "total": 1, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": ["Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown"]}, {"name": "Jennifer Wentz", "total": 3, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": ["Thursday 01/15, 1:00pm - 1:50pm | Teaching AI Application: Lessons Learned - Joel Poor", "Tuesday 01/13, 11:00am - 11:50am | Early Peek into Mizzou's Walled Garden Show-Me AI and Learn What the Secure AI Tool Can Do for Your Faculty and Students - Justin Palozola", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim"]}, {"name": "Soren Larsen", "total": 1, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": ["Tuesday 01/13, 2:00pm-2:50pm | Research Intensive Course Faculty Panel - Linda Blockus, Timothy Langen, Jamie Mestres, Soren Larsen, Nicolette Leiby, Amy Petry, and Kristin Schwain"]}, {"name": "Laurie Wallace", "total": 11, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | Success in Nursing: Coaching for Excellence - Christyl Barnes and Dr. Meredith Buchmeier", "Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Thursday 01/15, 1:00pm - 1:50pm | Teaching the Whole Student: What We Can Learn From Student-Athletes - Julie Hagan and Michelle Kelly", "Thursday 01/15, 2:00pm - 2:50pm | The Compassionate Classroom: Applying the Pedagogy of Kindness for Enhanced Student Engagement and Well-being - Rachel Bailey-Wood", "Thursday 01/15, 3:00pm - 3:50pm | From Nightmare to Effective Collaboration: Improving Teamwork in Public Health Education Using A Role-Based Framework - Sonita Simelus", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim", "Tuesday 01/13, 3:00pm - 3:50pm | Academic HIPs 101 - Graham McCaulley, Nicole Monnier, Erika Waller, Amy Lannin, and Linda Blockus", "Wednesday 01/14, 1:00pm - 1:50pm | The Horcruxes of the 21st Century: Understanding and Navigating AI Agents in Teaching and Learning - Guy Wilson, Thomas Roedel, and Kirk Dupree", "Wednesday 01/14, 3:00pm - 3:50pm | Better by Design: Elevating Engagement in Online Learning - Laura Foley, Persephone Lundolos, Jennifer O'Connor, Anandhi Upendran, and Danielle Oprean"]}, {"name": "Jessica Hosey", "total": 4, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Thursday 01/15, 2:00pm - 2:50pm | The Compassionate Classroom: Applying the Pedagogy of Kindness for Enhanced Student Engagement and Well-being - Rachel Bailey-Wood", "Tuesday 01/13, 3:00pm - 3:50pm | Story as Strategy: Using Narrative Design to Deepen Reflection, Retention, and Relevance in Learning - Joshua Shinn"]}, {"name": "Michael Volz", "total": 3, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": ["Tuesday 01/13, 11:00am - 11:50am | Showcasing Learning Through ePortfolios: Connecting Pedagogy and Technology - Joshua Merlenbach and Jennifer O'Connor", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim", "Wednesday 01/14, 1:00pm - 1:50pm | The Horcruxes of the 21st Century: Understanding and Navigating AI Agents in Teaching and Learning - Guy Wilson, Thomas Roedel, and Kirk Dupree"]}, {"name": "Joi Moore", "total": 3, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 3:00pm - 3:50pm | In-Person session - at the Teaching for Learning Center - Does it Help or Hinder?: The Complexities of AI in Accessibility and Equity in Education - Caroline Waldbuesser, Kara Starnes, Evan Kirksey, and Kendal Lyssy", "Wednesday 01/14, 11:00am - 12:00pm | Bring Your Own Brains: Keeping Student Cognitive Effort High When Using AI - Kevin Brown"]}, {"name": "Jennifer Fellabaum-Toston", "total": 9, "keynoteSelected": true, "keynoteSessions": ["Wednesday 01/14, 10:00am - 10:55am | Keynote Presentation: Joyful Teaching in Every Class: Find Your Fizz to Boost Learning and Success - Flower Darby"], "otherSessions": ["Monday 01/12, 2:00pm - 2:50pm | From Gloom to Bloom: Four Research-Based Strategies to Foster Emotional Well-Being and Engagement - Haylee Anderson", "Thursday 01/15, 10:00am - 12:00pm | Hybrid option - Teaching for Learning Center and/or Zoom - Accessibility Hackathon - Laura Foley", "Thursday 01/15, 2:00pm - 2:50pm | The Compassionate Classroom: Applying the Pedagogy of Kindness for Enhanced Student Engagement and Well-being - Rachel Bailey-Wood", "Tuesday 01/13, 10:00am - 10:50am | AI on Campus: Tools, Resources, and Support for Teaching and Learning - Kevin Brown, Justin Palozola, and Abbie O'Sullivan", "Tuesday 01/13, 1:00pm - 1:50pm | The Feedback Revolution: Secure, Personalized Coaching with Show-Me AI - Kihyung Kim", "Tuesday 01/13, 2:00pm - 2:50pm | Helping Students Find Their Voice: Creative Strategies for Engaged Academic Writing - Lissa Behm-Morawitz, Amy Lannin, and Christy Goldsmith", "Wednesday 01/14, 2:00pm - 2:50pm | Rethink and Redesign Assessments and Assignments That Have Been Undermined by AI - Justin Palozola and Kirk Durpee", "Wednesday 01/14, 3:00pm - 3:50pm | Better by Design: Elevating Engagement in Online Learning - Laura Foley, Persephone Lundolos, Jennifer O'Connor, Anandhi Upendran, and Danielle Oprean"]}];
+
+  new Chart(document.getElementById("pieKeynote"), {
+    type: "pie",
+    data: {
+      labels: ["Keynote selected", "No keynote"],
+      datasets: [{ data: [13, 5] }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const total = 18;
+              const v = c.raw;
+              const pct = (v/total*100).toFixed(1);
+              return ` ${c.label}: ${v} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  new Chart(document.getElementById("pieLoad"), {
+    type: "pie",
+    data: {
+      labels: ["1 session", "2\u20133 sessions", "4\u20136 sessions", "7+ sessions"],
+      datasets: [{ data: [2, 5, 5, 6] }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const total = 18;
+              const v = c.raw;
+              const pct = (v/total*100).toFixed(1);
+              return ` ${c.label}: ${v} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const tbody = document.querySelector("#tbl tbody");
+  const q = document.getElementById("q");
+  const fKeynote = document.getElementById("fKeynote");
+
+  function rowMatches(d, query, keyFilter){
+    const hay = (d.name + " " + d.keynoteSessions.join(" ") + " " + d.otherSessions.join(" ")).toLowerCase();
+    if(query && !hay.includes(query)) return false;
+    if(keyFilter === "yes" && !d.keynoteSelected) return false;
+    if(keyFilter === "no" && d.keynoteSelected) return false;
+    return true;
+  }
+
+  function render(){
+    const query = q.value.trim().toLowerCase();
+    const keyFilter = fKeynote.value;
+    tbody.innerHTML = "";
+    const rows = DATA.filter(d => rowMatches(d, query, keyFilter))
+                     .sort((a,b)=>a.name.localeCompare(b.name));
+    for(const d of rows){
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = d.name;
+
+      const tdKey = document.createElement("td");
+      tdKey.innerHTML = d.keynoteSelected ? '<span class="chip">Yes</span>' : '<span class="chip">No</span>';
+
+      const tdTotal = document.createElement("td");
+      tdTotal.innerHTML = `<span class="chip">${d.total}</span>`;
+
+      const tdSess = document.createElement("td");
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = "View sessions";
+      details.appendChild(summary);
+
+      const wrap = document.createElement("div");
+      wrap.className = "muted";
+      wrap.style.marginTop = "8px";
+
+      if(d.keynoteSessions.length){
+        const h = document.createElement("div");
+        h.innerHTML = "<strong>Keynote session(s):</strong>";
+        wrap.appendChild(h);
+
+        const ul = document.createElement("ul");
+        ul.className = "sessions";
+        for(const s of d.keynoteSessions){
+          const li = document.createElement("li");
+          li.textContent = s;
+          ul.appendChild(li);
+        }
+        wrap.appendChild(ul);
+      }
+
+      const h2 = document.createElement("div");
+      h2.style.marginTop = d.keynoteSessions.length ? "10px" : "0px";
+      h2.innerHTML = "<strong>Other session(s):</strong>";
+      wrap.appendChild(h2);
+
+      const ul2 = document.createElement("ul");
+      ul2.className = "sessions";
+      for(const s of d.otherSessions){
+        const li = document.createElement("li");
+        li.textContent = s;
+        ul2.appendChild(li);
+      }
+      wrap.appendChild(ul2);
+
+      details.appendChild(wrap);
+      tdSess.appendChild(details);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdKey);
+      tr.appendChild(tdTotal);
+      tr.appendChild(tdSess);
+
+      tbody.appendChild(tr);
+    }
+  }
+
+  q.addEventListener("input", render);
+  fKeynote.addEventListener("change", render);
+  render();
+</script>
+</body>
+</html>
