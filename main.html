@@ -1,85 +1,4 @@
-from pathlib import Path
-import json, re
-
-# Rebuild minimal data (hard-coded from prior analysis results to avoid dependency issues)
-DATA = [
-  {"name":"Alba Argerich","total":4,"keynoteSelected":True,
-   "keynoteSessions":[],"otherSessions":[]},
-]
-
-# We'll reconstruct from the already-computed invite_summary by reloading the spreadsheet quickly.
-import pandas as pd
-
-path="/mnt/data/Teaching+Renewal+Week+2026+Registration+Form_January+6,+2026_15.11.xlsx"
-df=pd.read_excel(path, sheet_name="Teaching+Renewal+Week+2026+Regi")
-sel_col=[c for c in df.columns if c.startswith("Please select only the sessions")][0]
-
-invitees = [
-"Alba Argerich","Brian Houston","Shruti Rana","Raquel Arouca","Mary Christie","John Lannin","Joan Hermsen",
-"David Schulz","Reginald Rogers Jr","Jeannette Pierce","Lael Keiser","Jennifer Wentz","Soren Larsen",
-"Laurie Wallace","Jessica Hosey","Michael Volz","Joi Moore","Jennifer Fellabaum-Toston"
-]
-import re
-def norm(s):
-    s=str(s).lower().strip()
-    s=re.sub(r"[\u2010-\u2015]", "-", s)
-    s=re.sub(r"[^a-z0-9]+", "", s)
-    return s
-
-df["Full Name"]=(df["First Name:"].astype(str).str.strip()+" "+df["Last Name:"].astype(str).str.strip())
-df["Full_norm"]=df["Full Name"].map(norm)
-
-day_re=re.compile(r'(Monday|Tuesday|Wednesday|Thursday|Friday)\s+\d{2}/\d{2}', re.I)
-def split_sessions(text):
-    if pd.isna(text): return []
-    t=str(text).strip()
-    t=re.sub(r'\s+', ' ', t)
-    starts=[m.start() for m in day_re.finditer(t)]
-    if not starts:
-        return [t] if t else []
-    starts.append(len(t))
-    parts=[]
-    for i in range(len(starts)-1):
-        part=t[starts[i]:starts[i+1]].strip(" ,;|")
-        if part:
-            parts.append(part)
-    return parts
-
-data=[]
-for inv in invitees:
-    rows=df[df["Full_norm"]==norm(inv)]
-    sessions=set()
-    for txt in rows[sel_col]:
-        for p in split_sessions(txt):
-            sessions.add(p)
-    sessions=sorted(sessions)
-    keynote=[s for s in sessions if re.search(r'keynote', s, re.I)]
-    other=[s for s in sessions if s not in keynote]
-    data.append({
-        "name": inv,
-        "total": len(sessions),
-        "keynoteSelected": bool(keynote),
-        "keynoteSessions": keynote,
-        "otherSessions": other
-    })
-
-keynote_yes=sum(1 for d in data if d["keynoteSelected"])
-keynote_no=len(data)-keynote_yes
-
-def bucket(n):
-    if n==1: return "1 session"
-    if 2<=n<=3: return "2–3 sessions"
-    if 4<=n<=6: return "4–6 sessions"
-    return "7+ sessions"
-
-buckets={"1 session":0,"2–3 sessions":0,"4–6 sessions":0,"7+ sessions":0}
-for d in data:
-    buckets[bucket(d["total"])]+=1
-
-avg_sessions=sum(d["total"] for d in data)/len(data)
-
-# Escape ${} in JS by doubling braces inside Python f-string
-html = f"""<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -87,15 +6,15 @@ html = f"""<!doctype html>
   <title>Invitees Who Registered – What They Registered For</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    :root{{
+    :root{
       --bg:#0b0f19;
       --text:#e8eefc;
       --muted:#a8b3cf;
       --border:rgba(255,255,255,0.10);
       --chip:rgba(255,255,255,0.06);
-    }}
-    *{{box-sizing:border-box}}
-    body{{
+    }
+    *{box-sizing:border-box}
+    body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background: radial-gradient(1200px 600px at 20% 0%, rgba(106,169,255,0.20), transparent 60%),
@@ -103,39 +22,39 @@ html = f"""<!doctype html>
                   var(--bg);
       color:var(--text);
       line-height:1.35;
-    }}
-    header{{max-width:1100px;margin:0 auto;padding:26px 18px 10px}}
-    h1{{margin:0 0 6px;font-size:clamp(20px,3vw,30px)}}
-    .sub{{margin:0;color:var(--muted);font-size:14px}}
-    main{{max-width:1100px;margin:0 auto;padding:16px 18px 30px;display:grid;gap:16px}}
-    .card{{background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-      border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.25)}}
-    .kpis{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}}
-    @media (max-width: 900px){{.kpis{{grid-template-columns:1fr 1fr}}}}
-    @media (max-width: 520px){{.kpis{{grid-template-columns:1fr}}}}
-    .kpi{{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:14px;padding:12px}}
-    .kpi .label{{color:var(--muted);font-size:12px;margin-bottom:6px}}
-    .kpi .value{{font-size:24px;font-weight:800}}
-    .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
-    @media (max-width: 900px){{.grid2{{grid-template-columns:1fr}}}}
-    h2{{margin:0 0 10px;font-size:16px}}
-    .muted{{color:var(--muted);font-size:12px}}
-    table{{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:rgba(255,255,255,0.02)}}
-    th,td{{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}}
-    th{{color:var(--muted);font-weight:700}}
-    tr:last-child td{{border-bottom:none}}
-    .chip{{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border);font-size:12px}}
-    details{{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:8px 10px}}
-    details summary{{cursor:pointer;color:var(--text);font-weight:700}}
-    .sessions{{margin:8px 0 0;padding-left:18px}}
-    .sessions li{{margin:6px 0}}
-    .toolbar{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}
-    input[type="search"], select{{
+    }
+    header{max-width:1100px;margin:0 auto;padding:26px 18px 10px}
+    h1{margin:0 0 6px;font-size:clamp(20px,3vw,30px)}
+    .sub{margin:0;color:var(--muted);font-size:14px}
+    main{max-width:1100px;margin:0 auto;padding:16px 18px 30px;display:grid;gap:16px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.25)}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}
+    @media (max-width: 900px){.kpis{grid-template-columns:1fr 1fr}}
+    @media (max-width: 520px){.kpis{grid-template-columns:1fr}}
+    .kpi{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:14px;padding:12px}
+    .kpi .label{color:var(--muted);font-size:12px;margin-bottom:6px}
+    .kpi .value{font-size:24px;font-weight:800}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 900px){.grid2{grid-template-columns:1fr}}
+    h2{margin:0 0 10px;font-size:16px}
+    .muted{color:var(--muted);font-size:12px}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:rgba(255,255,255,0.02)}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}
+    th{color:var(--muted);font-weight:700}
+    tr:last-child td{border-bottom:none}
+    .chip{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border);font-size:12px}
+    details{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
+    details summary{cursor:pointer;color:var(--text);font-weight:700}
+    .sessions{margin:8px 0 0;padding-left:18px}
+    .sessions li{margin:6px 0}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input[type="search"], select{
       background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;
       padding:10px 12px;color:var(--text);outline:none
-    }}
-    input[type="search"]{{min-width:240px}}
-    canvas{{max-width:100%}}
+    }
+    input[type="search"]{min-width:240px}
+    canvas{max-width:100%}
   </style>
 </head>
 <body>
@@ -144,10 +63,10 @@ html = f"""<!doctype html>
   <p class="sub">Exact sessions selected by the 18 matched Outlook invitees (from the registration export)</p>
 
   <div class="kpis">
-    <div class="kpi"><div class="label">Matched invitees</div><div class="value">{len(data)}</div></div>
-    <div class="kpi"><div class="label">Keynote selected</div><div class="value">{keynote_yes}</div><div class="muted">{keynote_yes/len(data)*100:.1f}%</div></div>
-    <div class="kpi"><div class="label">No keynote selected</div><div class="value">{keynote_no}</div><div class="muted">{keynote_no/len(data)*100:.1f}%</div></div>
-    <div class="kpi"><div class="label">Average sessions selected</div><div class="value">{avg_sessions:.1f}</div></div>
+    <div class="kpi"><div class="label">Matched invitees</div><div class="value">18</div></div>
+    <div class="kpi"><div class="label">Keynote selected</div><div class="value">0</div><div class="muted">0.0%</div></div>
+    <div class="kpi"><div class="label">No keynote selected</div><div class="value">18</div><div class="muted">100.0%</div></div>
+    <div class="kpi"><div class="label">Average sessions selected</div><div class="value">0.0</div></div>
   </div>
 </header>
 
@@ -204,73 +123,90 @@ html = f"""<!doctype html>
 </main>
 
 <script>
-  const DATA = {json.dumps(data)};
+  const DATA = [{"name": "Alba Argerich", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Brian Houston", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Shruti Rana", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Raquel Arouca", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Mary Christie", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "John Lannin", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Joan Hermsen", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "David Schulz", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Reginald Rogers Jr", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Jeannette Pierce", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Lael Keiser", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Jennifer Wentz", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Soren Larsen", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Laurie Wallace", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Jessica Hosey", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Michael Volz", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Joi Moore", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []},
+{"name": "Jennifer Fellabaum-Toston", "total": 0, "keynoteSelected": false, "keynoteSessions": [], "otherSessions": []}];
 
-  new Chart(document.getElementById("pieKeynote"), {{
+  new Chart(document.getElementById("pieKeynote"), {
     type: "pie",
-    data: {{
+    data: {
       labels: ["Keynote selected", "No keynote"],
-      datasets: [{{ data: [{keynote_yes}, {keynote_no}] }}]
-    }},
-    options: {{
-      plugins: {{
-        legend: {{ position: "bottom" }},
-        tooltip: {{
-          callbacks: {{
-            label: (c) => {{
-              const total = {len(data)};
+      datasets: [{ data: [0, 18] }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const total = 18;
               const v = c.raw;
               const pct = (v/total*100).toFixed(1);
-              return ` ${{c.label}}: ${{v}} (${{pct}}%)`;
-            }}
-          }}
-        }}
-      }}
-    }}
-  }});
+              return ` ${c.label}: ${v} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 
-  new Chart(document.getElementById("pieLoad"), {{
+  new Chart(document.getElementById("pieLoad"), {
     type: "pie",
-    data: {{
-      labels: {json.dumps(list(buckets.keys()))},
-      datasets: [{{ data: {json.dumps(list(buckets.values()))} }}]
-    }},
-    options: {{
-      plugins: {{
-        legend: {{ position: "bottom" }},
-        tooltip: {{
-          callbacks: {{
-            label: (c) => {{
-              const total = {len(data)};
+    data: {
+      labels: ["1 session","2–3 sessions","4–6 sessions","7+ sessions"],
+      datasets: [{ data: [0,0,0,0] }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const total = 18;
               const v = c.raw;
               const pct = (v/total*100).toFixed(1);
-              return ` ${{c.label}}: ${{v}} (${{pct}}%)`;
-            }}
-          }}
-        }}
-      }}
-    }}
-  }});
+              return ` ${c.label}: ${v} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 
   const tbody = document.querySelector("#tbl tbody");
   const q = document.getElementById("q");
   const fKeynote = document.getElementById("fKeynote");
 
-  function rowMatches(d, query, keyFilter){{
+  function rowMatches(d, query, keyFilter){
     const hay = (d.name + " " + d.keynoteSessions.join(" ") + " " + d.otherSessions.join(" ")).toLowerCase();
     if(query && !hay.includes(query)) return false;
     if(keyFilter === "yes" && !d.keynoteSelected) return false;
     if(keyFilter === "no" && d.keynoteSelected) return false;
     return true;
-  }}
+  }
 
-  function render(){{
+  function render(){
     const query = q.value.trim().toLowerCase();
     const keyFilter = fKeynote.value;
     tbody.innerHTML = "";
     const rows = DATA.filter(d => rowMatches(d, query, keyFilter))
                      .sort((a,b)=>a.name.localeCompare(b.name));
-    for(const d of rows){{
+    for(const d of rows){
       const tr = document.createElement("tr");
 
       const tdName = document.createElement("td");
@@ -280,7 +216,7 @@ html = f"""<!doctype html>
       tdKey.innerHTML = d.keynoteSelected ? '<span class="chip">Yes</span>' : '<span class="chip">No</span>';
 
       const tdTotal = document.createElement("td");
-      tdTotal.innerHTML = `<span class="chip">${{d.total}}</span>`;
+      tdTotal.innerHTML = `<span class="chip">${d.total}</span>`;
 
       const tdSess = document.createElement("td");
       const details = document.createElement("details");
@@ -292,20 +228,20 @@ html = f"""<!doctype html>
       wrap.className = "muted";
       wrap.style.marginTop = "8px";
 
-      if(d.keynoteSessions.length){{
+      if(d.keynoteSessions.length){
         const h = document.createElement("div");
         h.innerHTML = "<strong>Keynote session(s):</strong>";
         wrap.appendChild(h);
 
         const ul = document.createElement("ul");
         ul.className = "sessions";
-        for(const s of d.keynoteSessions){{
+        for(const s of d.keynoteSessions){
           const li = document.createElement("li");
           li.textContent = s;
           ul.appendChild(li);
-        }}
+        }
         wrap.appendChild(ul);
-      }}
+      }
 
       const h2 = document.createElement("div");
       h2.style.marginTop = d.keynoteSessions.length ? "10px" : "0px";
@@ -314,11 +250,11 @@ html = f"""<!doctype html>
 
       const ul2 = document.createElement("ul");
       ul2.className = "sessions";
-      for(const s of d.otherSessions){{
+      for(const s of d.otherSessions){
         const li = document.createElement("li");
         li.textContent = s;
         ul2.appendChild(li);
-      }}
+      }
       wrap.appendChild(ul2);
 
       details.appendChild(wrap);
@@ -330,8 +266,8 @@ html = f"""<!doctype html>
       tr.appendChild(tdSess);
 
       tbody.appendChild(tr);
-    }}
-  }}
+    }
+  }
 
   q.addEventListener("input", render);
   fKeynote.addEventListener("change", render);
@@ -339,9 +275,3 @@ html = f"""<!doctype html>
 </script>
 </body>
 </html>
-"""
-
-out_path = Path("/mnt/data/invitees_registration_sessions_detailed.html")
-out_path.write_text(html, encoding="utf-8")
-out_path.as_posix()
-
